@@ -1,11 +1,13 @@
 from fastapi import FastAPI
-import uvicorn
+import asyncio
 
-app = FastAPI()
+app = FastAPI(title="CSharp-Identity-Provider Service", version="2.0.0")
 
 @app.get("/health")
-def health_check():
-    return {"status": "healthy", "service": "active"}
+def health():
+    return {"status": "ok", "service": "CSharp-Identity-Provider"}
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.post("/api/v1/execute")
+async def execute_task(payload: dict):
+    await asyncio.sleep(0.1) # simulate work
+    return {"status": "success", "domain": "provider", "result": payload}

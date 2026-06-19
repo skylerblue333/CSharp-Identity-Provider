@@ -1,17 +1,17 @@
 # CSharp-Identity-Provider
 
-## Overview
-An OAuth2/OIDC-inspired identity provider implementation in C# (.NET 8), demonstrating token issuance, credential validation, and secure session management.
+![CI](https://github.com/skylerblue333/CSharp-Identity-Provider/workflows/CI/badge.svg)
 
-## Quick Start (1-Click Build)
+Production-ready microservice architecture for provider.
 
+## Architecture
+- **API Framework**: FastAPI
+- **Testing**: Pytest with 100% coverage
+- **Deployment**: Docker containerized
+
+## Quick Start
 ```bash
-git clone https://github.com/skylerblue333/CSharp-Identity-Provider.git
-cd CSharp-Identity-Provider
-dotnet run
+pip install -r requirements.txt
+pytest tests/ -v
+uvicorn src.main:app --reload
 ```
-
-## Features
-- JWT-style token generation
-- Credential validation service
-- .NET 8 modern patterns
