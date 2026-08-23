@@ -1,11 +1,29 @@
-name: CI
-on: [push, pull_request]
+name: identity-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - run: dotnet build
+      - name: Restore tests and product
+        run: dotnet restore tests/SkyIdentity.Tests.csproj
+      - name: Build product
+        run: dotnet build CSharp-Identity-Provider.csproj -c Release --no-restore
+      - name: Test identity core
+        run: dotnet test tests/SkyIdentity.Tests.csproj -c Release --no-restore
+      - name: Report vulnerable dependencies
+        run: dotnet list tests/SkyIdentity.Tests.csproj package --vulnerable --include-transitive
+      - name: Build runtime container
+        run: docker build -t sky-identity:ci .
+      - name: Verify non-root image declaration
+        run: test "$(docker inspect -f '{{.Config.User}}' sky-identity:ci)" = "app"

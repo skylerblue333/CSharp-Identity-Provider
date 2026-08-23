@@ -1,44 +1,103 @@
-<!-- PORTFOLIO PROJECT PROFILE: maintained by the repository owner -->
+# Sky Identity
 
-## Project profile and code-audit snapshot
+**SKYCOIN4444 standalone product #7** — a compact C#/.NET identity service with persistent user records and short-lived opaque bearer sessions.
 
-**What this is:** **CSharp-Identity-Provider** is a public repository described as: “OAuth2/OIDC identity provider implementation in C#. #SkyCoin4444 #AI #Blockchain #DevOps #Innovation” Its dominant language signals are **C# (1 files)**.
+This repository does **not** claim to be a complete OAuth 2.0 or OpenID Connect provider. It is a focused identity foundation intended to sit behind Sky Gateway and later gain standards-based federation through explicit adapters.
 
-**Why it has value:** Its value is best understood through the implementation evidence currently present in the repository: **15 tracked files** were observed in the shallow audit, with the source structure and existing documentation providing the project’s specific context. This README does not treat a prototype, experiment, or archive as a production system without supporting evidence.
+## Implemented capability
 
-**Implementation evidence:** No test-related file was detected by filename heuristics.; 2 dependency or package manifest(s) detected; 2 build/CI/infrastructure signal(s) detected; and 3 documentation or governance file(s) detected. Test filenames observed include none detected. Dependency or package files include `CSharp-Identity-Provider.csproj`, `package.json`. Build, CI, or infrastructure signals include `Dockerfile`, `.github/workflows/ci.yml`.
+- normalized account registration with duplicate protection;
+- PBKDF2-HMAC-SHA256 password hashing with per-user random salts;
+- constant-time password-hash comparison;
+- dummy password derivation for unknown users to reduce obvious login timing differences;
+- persistent JSON user store with atomic replacement and restrictive Unix file mode where supported;
+- cryptographically random opaque bearer sessions;
+- session tokens stored only as SHA-256 digests in server memory;
+- configurable session expiry and logout/revocation;
+- generic invalid-credential responses;
+- `/api/v1/me` authenticated session inspection;
+- startup validation for password-derivation and session settings;
+- Kestrel request-body and timeout boundaries;
+- `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and strict referrer response headers;
+- structured security events that avoid logging passwords or session tokens;
+- `/healthz`, `/readyz`, and lightweight `/metrics` endpoints;
+- non-root .NET 8 container with persistent `/data` volume;
+- xUnit coverage for persistence, password verification, validation, expiry, revocation and malformed-store failure;
+- CI build, tests, dependency-vulnerability reporting and container-user verification.
 
-**Current status:** The repository is tracked on the `main` branch. The existing source tree, configuration, tests, workflows, and documentation remain authoritative for supported behavior and maturity. A code audit is not a production-readiness certification, and the presence of a test or workflow file does not establish that all checks pass.
+## Run locally
 
-**Relationship to the wider portfolio:** This repository is one focused component of the broader Skyler Blue Spillers portfolio across AI, software engineering, cloud and DevOps, cybersecurity, blockchain, finance, education, social systems, and creative work. It may provide a service boundary, implementation pattern, experiment, archive, or reusable idea for related repositories. Treat repositories as technical dependencies only where documented interfaces and verified project requirements support that relationship.
+```bash
+dotnet run --project CSharp-Identity-Provider.csproj
+```
 
-**Quality and security note:** No obvious secret-like pattern was detected by the limited static scan; this is not a substitute for a security audit. No TODO/FIXME marker was detected in the scanned text files.
+Optional configuration:
 
----
+```bash
+export IDENTITY_DATA_PATH=./data/users.json
+export PBKDF2_ITERATIONS=210000
+export SESSION_TTL_MINUTES=60
+```
 
-# Csharp Identity Provider
+Register and authenticate:
 
-![GitHub stars](https://img.shields.io/github/stars/skylerblue333/CSharp-Identity-Provider?style=flat-square)
-![GitHub license](https://img.shields.io/github/license/skylerblue333/CSharp-Identity-Provider?style=flat-square)
+```bash
+curl -X POST http://localhost:5000/api/v1/register \
+  -H 'content-type: application/json' \
+  -d '{"username":"alice.example","password":"correct horse battery staple"}'
 
-## 🌟 Overview
-**CSharp-Identity-Provider** is a professional-grade project within the **SkyCoin4444** ecosystem. It focuses on delivering high-value solutions in the domain of **Software Development**.
+curl -X POST http://localhost:5000/api/v1/login \
+  -H 'content-type: application/json' \
+  -d '{"username":"alice.example","password":"correct horse battery staple"}'
+```
 
-## 🚀 Key Features
-- **Scalable Architecture**: Designed for enterprise-level growth and performance.
-- **Modern Standards**: Implements best practices for clean code and maintainability.
-- **Robust Integration**: Built to work seamlessly within modern cloud-native environments.
+Use the returned opaque token:
 
-## 🛠️ Technology Stack
-- **Primary Domain**: Software Development
-- **Ecosystem**: SkyCoin4444 Digital Platform
+```bash
+curl http://localhost:5000/api/v1/me -H 'Authorization: Bearer <token>'
+```
 
-## 📂 Structure
-The project is organized into a modular structure to ensure clarity and ease of development.
+## Verify
 
-## 👨‍💻 Author
-**Skyler Blue Spillers**
-*Professional Chess Player & Software Engineer*
+```bash
+dotnet restore tests/SkyIdentity.Tests.csproj
+dotnet build CSharp-Identity-Provider.csproj -c Release --no-restore
+dotnet test tests/SkyIdentity.Tests.csproj -c Release --no-restore
+dotnet list tests/SkyIdentity.Tests.csproj package --vulnerable --include-transitive
+docker build -t sky-identity .
+```
 
----
-*Powered by SkyCoin4444*
+## Container
+
+```bash
+docker build -t sky-identity .
+docker run --rm -p 8080:8080 -v sky-identity-data:/data sky-identity
+```
+
+## Architecture
+
+```text
+Client
+  │
+  ▼
+Sky Gateway
+  │
+  ▼
+Sky Identity
+  ├─ username/password validation
+  ├─ PBKDF2 password verification
+  ├─ persistent user records
+  └─ in-memory opaque sessions
+          │
+          └─ downstream SKYCOIN4444 services
+```
+
+## Deliberate boundaries
+
+Read [`SECURITY.md`](SECURITY.md), [`PRODUCT.md`](PRODUCT.md), and [`MASTER_PLAN.md`](MASTER_PLAN.md).
+
+This implementation does not yet provide OAuth/OIDC authorization-code flows, JWT signing/JWKS, refresh tokens, MFA, password-reset/email verification, SAML federation, external directory sync, distributed session state, HSM/KMS key custody, or multi-region HA. Those capabilities must be implemented and tested before they are claimed.
+
+## License
+
+See [`LICENSE`](LICENSE).
