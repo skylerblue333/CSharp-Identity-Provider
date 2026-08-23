@@ -34,25 +34,18 @@ var sessionMinutes = ReadInt("SESSION_TTL_MINUTES", 60, 5, 1440);
 var users = new IdentityStore(dataPath, iterations);
 var sessions = new SessionStore(TimeSpan.FromMinutes(sessionMinutes));
 var metrics = new IdentityMetrics();
-
 var app = builder.Build();
 
 app.Use(async (context, next) =>
 {
     context.Response.Headers.CacheControl = "no-store";
     context.Response.Headers.XContentTypeOptions = "nosniff";
-    context.Response.Headers.ReferrerPolicy = "no-referrer";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
     await next();
 });
 
 app.MapGet("/healthz", () => Results.Ok(new { status = "healthy", service = "sky-identity" }));
-app.MapGet("/readyz", () => Results.Ok(new
-{
-    status = "ready",
-    service = "sky-identity",
-    persistedUsers = users.Count,
-    activeSessions = sessions.Count
-}));
+app.MapGet("/readyz", () => Results.Ok(new { status = "ready", service = "sky-identity", persistedUsers = users.Count, activeSessions = sessions.Count }));
 app.MapGet("/metrics", () => Results.Ok(metrics.Snapshot(users.Count, sessions.Count)));
 
 app.MapPost("/api/v1/register", (RegisterRequest input, ILogger<Program> logger) =>
@@ -84,25 +77,16 @@ app.MapPost("/api/v1/login", (LoginRequest input, ILogger<Program> logger) =>
         logger.LogWarning("identity_event=login_rejected username={Username}", (input.Username ?? "").Trim().ToLowerInvariant());
         return Results.Json(new { error = "invalid credentials" }, statusCode: StatusCodes.Status401Unauthorized);
     }
-
     var issued = sessions.Issue(username, DateTimeOffset.UtcNow);
     metrics.Increment("login_succeeded");
     logger.LogInformation("identity_event=login_succeeded username={Username}", username);
-    return Results.Ok(new
-    {
-        accessToken = issued.Token,
-        tokenType = "Bearer",
-        expiresAt = issued.Session.ExpiresAt,
-        username
-    });
+    return Results.Ok(new { accessToken = issued.Token, tokenType = "Bearer", expiresAt = issued.Session.ExpiresAt, username });
 });
 
 app.MapGet("/api/v1/me", (HttpRequest request) =>
 {
     var token = ReadBearer(request);
-    if (token is null)
-        return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
-
+    if (token is null) return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
     var session = sessions.Validate(token, DateTimeOffset.UtcNow);
     if (session is null)
     {
@@ -115,13 +99,9 @@ app.MapGet("/api/v1/me", (HttpRequest request) =>
 app.MapPost("/api/v1/logout", (HttpRequest request, ILogger<Program> logger) =>
 {
     var token = ReadBearer(request);
-    if (token is null)
-        return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
-
+    if (token is null) return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
     var session = sessions.Validate(token, DateTimeOffset.UtcNow);
-    if (session is null)
-        return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
-
+    if (session is null) return Results.Json(new { error = "unauthorized" }, statusCode: StatusCodes.Status401Unauthorized);
     sessions.Revoke(token);
     metrics.Increment("logout");
     logger.LogInformation("identity_event=logout username={Username}", session.Username);
@@ -136,9 +116,7 @@ public sealed record LoginRequest(string? Username, string? Password);
 public sealed class IdentityMetrics
 {
     private readonly ConcurrentDictionary<string, long> _values = new(StringComparer.Ordinal);
-
     public void Increment(string name) => _values.AddOrUpdate(name, 1, (_, current) => current + 1);
-
     public IReadOnlyDictionary<string, object> Snapshot(int users, int sessions)
     {
         var result = _values.ToDictionary(pair => pair.Key, pair => (object)pair.Value, StringComparer.Ordinal);
