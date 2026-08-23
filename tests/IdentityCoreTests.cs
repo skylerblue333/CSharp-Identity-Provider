@@ -44,7 +44,7 @@ public sealed class IdentityCoreTests : IDisposable
         var sessions = new SessionStore(TimeSpan.FromMinutes(5));
         var issued = sessions.Issue("alice", now);
 
-        Assert.NotEqual(issued.Token, "alice");
+        Assert.NotEqual("alice", issued.Token);
         Assert.Equal("alice", sessions.Validate(issued.Token, now.AddMinutes(1))?.Username);
         Assert.True(sessions.Revoke(issued.Token));
         Assert.Null(sessions.Validate(issued.Token, now.AddMinutes(1)));
